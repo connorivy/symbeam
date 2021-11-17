@@ -22,6 +22,8 @@ from sympy.abc import E, I, x
 from symbeam.load import distributed_load, point_load, point_moment
 from symbeam.point import continuity, fixed, hinge, pin, roller
 
+import json
+
 
 # Set numerical tolerance
 tol = 1e-6
@@ -1148,6 +1150,269 @@ class beam:
         ax[2].xaxis.set_major_formatter(ticker.FormatStrFormatter("%0.0e"))
         ax[3].yaxis.set_major_formatter(ticker.FormatStrFormatter("%0.0e"))
         ax[3].xaxis.set_major_formatter(ticker.FormatStrFormatter("%0.0e"))
+
+        return fig, ax
+
+    # ------------------------------------------------------------------------- CUSTOM FUNCTION TO FIT INPUT THAT THE EXISTING PROGRAM IS LOOKING FOR
+    def get_chart_values(self, subs={}):
+        """Plots the shear force and bending moment diagrams and the deflection.
+
+        Parameters
+        ----------
+        subs : dictionary
+          User-specified symbols substitution for the symbolic expressions
+
+        Returns
+        -------
+        fig : matplotlib figure
+          Plotting figure
+        ax : list of matplotlib axis
+          List of subplot axis
+        """
+        # Define some plotting settings.
+        max_distributed_load = []
+        xmin = 0
+        xmax = 0
+
+        # Remove the 'x' variable from the user substitutions
+        subs.pop("x", None)
+
+        # # Create the figure and plot the shear force, bending moment and deflection for
+        # # each segment.
+        # fig, ax = plt.subplots(
+        #     4,
+        #     1,
+        #     num="Internal loads and deflection",
+        #     figsize=(7, 8),
+        #     constrained_layout=True,
+        #     sharex="all",
+        # )
+
+        shear_value_pairs = []
+        max_shear_value_pairs = []
+        moment_value_pairs = []
+        max_moment_value_pairs = []
+        # Plots segments
+        # --------------
+        for i, isegment in enumerate(self.segments):
+            # Copies of the relevant expressions
+            distributed_load_plot = isegment.distributed_load.expression
+            shear_force_plot = isegment.shear_force
+            bending_moment_plot = isegment.bending_moment
+            deflection_plot = isegment.deflection
+            x_start_plot = isegment.x_start
+            x_end_plot = isegment.x_end
+
+            # User defined substitutions
+            distributed_load_plot = distributed_load_plot.subs(subs)
+            shear_force_plot = shear_force_plot.subs(subs)
+            bending_moment_plot = bending_moment_plot.subs(subs)
+            deflection_plot = deflection_plot.subs(subs)
+            x_start_plot = x_start_plot.subs(subs)
+            x_end_plot = x_end_plot.subs(subs)
+
+            # Create new expressions by substituting all remaining symbolic variables with
+            # '1', except for the x variable
+            variables_distributed_load = distributed_load_plot.free_symbols
+            variables_distributed_load.discard(x)
+            variables_shear_force = shear_force_plot.free_symbols
+            variables_shear_force.discard(x)
+            variables_bending_moment = bending_moment_plot.free_symbols
+            variables_bending_moment.discard(x)
+            variables_deflection = deflection_plot.free_symbols
+            variables_deflection.discard(x)
+            variables_x_start = x_start_plot.free_symbols
+            variables_x_start.discard(x)
+            variables_x_end = x_end_plot.free_symbols
+            variables_x_end.discard(x)
+
+            for ivariable in variables_distributed_load:
+                distributed_load_plot = distributed_load_plot.subs({ivariable: 1})
+
+            for ivariable in variables_shear_force:
+                shear_force_plot = shear_force_plot.subs({ivariable: 1})
+
+            for ivariable in variables_bending_moment:
+                bending_moment_plot = bending_moment_plot.subs({ivariable: 1})
+
+            for ivariable in variables_deflection:
+                deflection_plot = deflection_plot.subs({ivariable: 1})
+
+            for ivariable in variables_x_start:
+                x_start_plot = x_start_plot.subs({ivariable: 1})
+
+            for ivariable in variables_x_end:
+                x_end_plot = x_end_plot.subs({ivariable: 1})
+
+            
+            # Numeric plotting x variable.
+            num_ticks = 100 * abs(float(x_end_plot) - float(x_start_plot)) // self.length
+            x_plot = np.linspace(
+                float(x_start_plot), float(x_end_plot), num=num_ticks, endpoint=True
+            )
+
+
+            # # Distributed load plot.
+            # distributed_load_numeric = np.vectorize(sym.lambdify(x, distributed_load_plot))(
+            #     x_plot
+            # )
+            # max_distributed_load.append(np.max(np.abs(distributed_load_numeric)))
+
+
+            # ax[0].plot(
+            #     x_plot,
+            #     -distributed_load_numeric,
+            #     color=color_distributed_load,
+            #     linewidth=line_width_distributed_loads,
+            # )
+            # ax[0].fill_between(
+            #     x_plot,
+            #     -distributed_load_numeric,
+            #     color=color_distributed_load,
+            #     linewidth=line_width_distributed_loads,
+            #     alpha=alpha,
+            # )
+            # ax[0].plot(
+            #     [x_plot[0], x_plot[-1]], [0, 0], color=color_beam, linewidth=line_width_beam
+            # )
+
+            shear_ys = np.vectorize(sym.lambdify(x, shear_force_plot))(x_plot)
+            moment_ys = np.vectorize(sym.lambdify(x, bending_moment_plot))(x_plot)
+
+            shear_indices = np.argpartition(shear_ys, 1)[:1]
+            moment_indices = np.argpartition(moment_ys, 1)[:1]
+
+            for i in range(0, x_plot.size):
+                shear_value_pairs.append({'x': x_plot[i], 'y': shear_ys[i]})
+                moment_value_pairs.append({'x': x_plot[i], 'y': moment_ys[i]})
+
+                if i in shear_indices:
+                    max_shear_value_pairs.append({'x': x_plot[i], 'y': shear_ys[i]})
+                else:
+                    max_shear_value_pairs.append({'x': None, 'y': None})
+
+                if i in moment_indices:
+                    max_moment_value_pairs.append({'x': x_plot[i], 'y': moment_ys[i]})
+                else:
+                    max_moment_value_pairs.append({'x': None, 'y': None})
+
+        
+            
+
+
+            # # Shear force plot.
+            # ax[1].plot(
+            #     x_plot,
+            #     np.vectorize(sym.lambdify(x, shear_force_plot))(x_plot),
+            #     color=color_shear_force,
+            #     linewidth=line_width_diagrams,
+            # )
+            # ax[1].fill_between(
+            #     x_plot,
+            #     sym.lambdify(x, shear_force_plot)(x_plot),
+            #     color=color_shear_force,
+            #     alpha=alpha,
+            # )
+
+            # # Bending diagram plot.
+            # ax[2].plot(
+            #     x_plot,
+            #     np.vectorize(sym.lambdify(x, bending_moment_plot))(x_plot),
+            #     color=color_bending_moment,
+            #     linewidth=line_width_diagrams,
+            # )
+            # ax[2].fill_between(
+            #     x_plot,
+            #     sym.lambdify(x, bending_moment_plot)(x_plot),
+            #     color=color_bending_moment,
+            #     alpha=alpha,
+            # )
+
+            # # Deflection plot.
+            # ax[3].plot(
+            #     x_plot,
+            #     np.vectorize(sym.lambdify(x, deflection_plot))(x_plot),
+            #     color=color_deflection,
+            #     linewidth=line_width_deflection,
+            # )
+            # ax[3].plot(
+            #     [x_plot[0], x_plot[-1]],
+            #     [0, 0],
+            #     color=color_beam,
+            #     linewidth=line_width_beam / 2,
+            #     linestyle="--",
+            # )
+
+            # # Get maximum and minimum coordinate of the beam (axis limits).
+            # if i == 0:
+            #     xmin = x_plot[0]
+            # if i == len(self.segments) - 1:
+            #     xmax = x_plot[-1]
+
+        return json.dumps(shear_value_pairs), json.dumps(max_shear_value_pairs), json.dumps(moment_value_pairs), json.dumps(max_moment_value_pairs)
+
+        # Set the y-axis upper and lower bounds for the beam representation.
+        ymax = max(max_distributed_load) * 1.1
+        if ymax < tol:
+            ymax = 1.0
+
+        # FIx the limits of the first axis. This is mandatory for plotting the beam
+        # configuration.
+        ymin = -ymax
+        ax[0].set_ylim(ymin, ymax)
+        ax[0].set_xlim(xmin, xmax)
+        ax[0].axis("off")
+
+        # Plot points
+        # -----------
+        external_force_plot_vector = np.zeros((len(self.points)))
+        external_moment_plot_vector = np.zeros((len(self.points)))
+        # Loop over the points, draw the points and extract the magnitudes of the external
+        # forces and moments.
+        for i, ipoint in enumerate(self.points):
+            ipoint.draw_support(ax[0], input_substitution=subs)
+            external_force_plot = ipoint.external_force
+            external_moment_plot = ipoint.external_moment
+
+            # User-defined substitutions
+            external_force_plot = external_force_plot.subs(subs)
+            external_moment_plot = external_moment_plot.subs(subs)
+
+            for ivariable in external_force_plot.free_symbols:
+                external_force_plot = external_force_plot.subs({ivariable: 1})
+
+            for ivariable in external_moment_plot.free_symbols:
+                external_moment_plot = external_moment_plot.subs({ivariable: 1})
+
+            external_force_plot_vector[i] = float(external_force_plot)
+            external_moment_plot_vector[i] = float(external_moment_plot)
+
+        # Reset the aaxis limits of the configuration plot.
+        ax[0].set_ylim(ymin, ymax)
+        ax[0].set_xlim(xmin, xmax)
+
+        # Scale the forces so that the maximum point load has the length of the upper bound
+        # of the configuration plot and draw the forces.
+        max_force = np.max(np.abs(external_force_plot_vector))
+        max_moment = np.max(np.abs(external_moment_plot_vector))
+        fraction_max = 0.9
+        if max_force > tol:
+            external_force_plot_vector = (
+                external_force_plot_vector / max_force * ymax * fraction_max
+            )
+
+        if max_moment > tol:
+            external_moment_plot_vector = external_moment_plot_vector / max_moment
+
+        for i, ipoint in enumerate(self.points):
+            if abs(external_force_plot_vector[i]) > tol:
+                ipoint.draw_force(
+                    ax[0], external_force_plot_vector[i], input_substitution=subs
+                )
+            if abs(external_moment_plot_vector[i]) > tol:
+                ipoint.draw_moment(
+                    ax[0], external_moment_plot_vector[i], input_substitution=subs
+                )
 
         return fig, ax
 
