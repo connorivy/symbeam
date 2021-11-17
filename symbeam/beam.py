@@ -1177,17 +1177,6 @@ class beam:
         # Remove the 'x' variable from the user substitutions
         subs.pop("x", None)
 
-        # # Create the figure and plot the shear force, bending moment and deflection for
-        # # each segment.
-        # fig, ax = plt.subplots(
-        #     4,
-        #     1,
-        #     num="Internal loads and deflection",
-        #     figsize=(7, 8),
-        #     constrained_layout=True,
-        #     sharex="all",
-        # )
-
         shear_value_pairs = []
         max_shear_value_pairs = []
         moment_value_pairs = []
@@ -1279,22 +1268,57 @@ class beam:
             shear_ys = np.vectorize(sym.lambdify(x, shear_force_plot))(x_plot)
             moment_ys = np.vectorize(sym.lambdify(x, bending_moment_plot))(x_plot)
 
+            # shear_extremes = [None, None]
+            # moment_extremes = [None, None]
+            # for i in range(0, x_plot.size):
+            #     if not shear_extremes[0]:
+            #         shear_extremes[0] = shear_ys[i]
+            #         shear_extremes[1] = shear_ys[i]
+
+            #         moment_extremes[0] = moment_ys[i]
+            #         moment_extremes[0] = moment_ys[i]
+
             shear_indices = np.argpartition(shear_ys, 1)[:1]
             moment_indices = np.argpartition(moment_ys, 1)[:1]
+
+            max_shear_index = np.argmax(shear_ys)
+            min_shear_index = np.argmin(shear_ys)
+            max_moment_index = np.argmax(moment_ys)
+            min_moment_index = np.argmin(moment_ys)
+
+            print(np.argmax(moment_ys), np.argmin(moment_ys))
 
             for i in range(0, x_plot.size):
                 shear_value_pairs.append({'x': x_plot[i], 'y': shear_ys[i]})
                 moment_value_pairs.append({'x': x_plot[i], 'y': moment_ys[i]})
 
-                if i in shear_indices:
+                # if i in shear_indices:
+                #     max_shear_value_pairs.append({'x': x_plot[i], 'y': shear_ys[i]})
+                # else:
+                #     max_shear_value_pairs.append({'x': None, 'y': None})
+
+                if i == max_shear_index:
+                    max_shear_value_pairs.append({'x': x_plot[i], 'y': shear_ys[i]})
+                elif i == min_shear_index:
+                    max_shear_value_pairs.append({'x': x_plot[i], 'y': shear_ys[i]})
+                elif i == x_plot.size - 1 and max_shear_index == min_shear_index:
                     max_shear_value_pairs.append({'x': x_plot[i], 'y': shear_ys[i]})
                 else:
                     max_shear_value_pairs.append({'x': None, 'y': None})
 
-                if i in moment_indices:
+                if i == max_moment_index:
+                    max_moment_value_pairs.append({'x': x_plot[i], 'y': moment_ys[i]})
+                elif i == min_moment_index:
+                    max_moment_value_pairs.append({'x': x_plot[i], 'y': moment_ys[i]})
+                elif i == x_plot.size - 1 and max_moment_index == min_moment_index:
                     max_moment_value_pairs.append({'x': x_plot[i], 'y': moment_ys[i]})
                 else:
                     max_moment_value_pairs.append({'x': None, 'y': None})
+
+                # if i in moment_indices:
+                #     max_moment_value_pairs.append({'x': x_plot[i], 'y': moment_ys[i]})
+                # else:
+                #     max_moment_value_pairs.append({'x': None, 'y': None})
 
         
             
