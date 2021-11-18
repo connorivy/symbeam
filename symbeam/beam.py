@@ -1181,6 +1181,9 @@ class beam:
         max_shear_value_pairs = []
         moment_value_pairs = []
         max_moment_value_pairs = []
+
+        extreme_shear_values = [0,0]
+        extreme_moment_values = [0,0]
         # Plots segments
         # --------------
         for i, isegment in enumerate(self.segments):
@@ -1224,14 +1227,14 @@ class beam:
             for ivariable in variables_bending_moment:
                 bending_moment_plot = bending_moment_plot.subs({ivariable: 1})
 
-            for ivariable in variables_deflection:
-                deflection_plot = deflection_plot.subs({ivariable: 1})
+            # for ivariable in variables_deflection:
+            #     deflection_plot = deflection_plot.subs({ivariable: 1})
 
-            for ivariable in variables_x_start:
-                x_start_plot = x_start_plot.subs({ivariable: 1})
+            # for ivariable in variables_x_start:
+            #     x_start_plot = x_start_plot.subs({ivariable: 1})
 
-            for ivariable in variables_x_end:
-                x_end_plot = x_end_plot.subs({ivariable: 1})
+            # for ivariable in variables_x_end:
+            #     x_end_plot = x_end_plot.subs({ivariable: 1})
 
             
             # Numeric plotting x variable.
@@ -1278,15 +1281,25 @@ class beam:
             #         moment_extremes[0] = moment_ys[i]
             #         moment_extremes[0] = moment_ys[i]
 
-            shear_indices = np.argpartition(shear_ys, 1)[:1]
-            moment_indices = np.argpartition(moment_ys, 1)[:1]
-
             max_shear_index = np.argmax(shear_ys)
             min_shear_index = np.argmin(shear_ys)
             max_moment_index = np.argmax(moment_ys)
             min_moment_index = np.argmin(moment_ys)
 
-            print(np.argmax(moment_ys), np.argmin(moment_ys))
+            extreme_shear_values[0] = max(extreme_shear_values[0], np.max(shear_ys))
+            extreme_shear_values[1] = min(extreme_shear_values[1], np.min(shear_ys))
+            extreme_moment_values[0] = max(extreme_moment_values[0], np.max(moment_ys))
+            extreme_moment_values[1] = min(extreme_moment_values[1], np.min(moment_ys))
+            
+
+            deflection_plot = deflection_plot.subs({'x': x_plot[0]})
+            eq1 = sym.Eq(deflection_plot, float(200 / 360))
+            print(deflection_plot, eq1)
+
+            sol = sym.solve(eq1, I)
+
+            print('sol', sol)
+
 
             for i in range(0, x_plot.size):
                 shear_value_pairs.append({'x': x_plot[i], 'y': shear_ys[i]})
@@ -1373,7 +1386,7 @@ class beam:
             # if i == len(self.segments) - 1:
             #     xmax = x_plot[-1]
 
-        return json.dumps(shear_value_pairs), json.dumps(max_shear_value_pairs), json.dumps(moment_value_pairs), json.dumps(max_moment_value_pairs)
+        return json.dumps(shear_value_pairs), json.dumps(max_shear_value_pairs), json.dumps(moment_value_pairs), json.dumps(max_moment_value_pairs), json.dumps(extreme_shear_values), json.dumps(extreme_moment_values)
 
         # Set the y-axis upper and lower bounds for the beam representation.
         ymax = max(max_distributed_load) * 1.1
