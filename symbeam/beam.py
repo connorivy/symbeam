@@ -1181,9 +1181,17 @@ class beam:
         max_shear_value_pairs = []
         moment_value_pairs = []
         max_moment_value_pairs = []
+        deflection_value_pairs = []
+        max_deflection_value_pairs = []
+        deflection_eqns = []
+        I_req = 0
+        max_deflection_index = None
+        old_extreme_deflection_index = [0,0]
+        min_deflection_index = None
 
         extreme_shear_values = [0,0]
         extreme_moment_values = [0,0]
+        extreme_deflection_values = [0,0]
         # Plots segments
         # --------------
         for i, isegment in enumerate(self.segments):
@@ -1271,44 +1279,44 @@ class beam:
             shear_ys = np.vectorize(sym.lambdify(x, shear_force_plot))(x_plot)
             moment_ys = np.vectorize(sym.lambdify(x, bending_moment_plot))(x_plot)
 
-            # shear_extremes = [None, None]
-            # moment_extremes = [None, None]
-            # for i in range(0, x_plot.size):
-            #     if not shear_extremes[0]:
-            #         shear_extremes[0] = shear_ys[i]
-            #         shear_extremes[1] = shear_ys[i]
-
-            #         moment_extremes[0] = moment_ys[i]
-            #         moment_extremes[0] = moment_ys[i]
+            deflection_eqns.append(deflection_plot)
+            deflection_plot = deflection_plot.subs({I: 1})
+            deflection_ys = np.vectorize(sym.lambdify(x, deflection_plot))(x_plot)
 
             max_shear_index = np.argmax(shear_ys)
             min_shear_index = np.argmin(shear_ys)
             max_moment_index = np.argmax(moment_ys)
             min_moment_index = np.argmin(moment_ys)
 
-            extreme_shear_values[0] = max(extreme_shear_values[0], np.max(shear_ys))
-            extreme_shear_values[1] = min(extreme_shear_values[1], np.min(shear_ys))
-            extreme_moment_values[0] = max(extreme_moment_values[0], np.max(moment_ys))
-            extreme_moment_values[1] = min(extreme_moment_values[1], np.min(moment_ys))
-            
-
-            deflection_plot = deflection_plot.subs({'x': x_plot[0]})
-            eq1 = sym.Eq(deflection_plot, float(200 / 360))
-            print(deflection_plot, eq1)
-
-            sol = sym.solve(eq1, I)
-
-            print('sol', sol)
-
+            segment_max_deflection_index = np.argmax(deflection_ys)
+            segment_min_deflection_index = np.argmin(deflection_ys)
 
             for i in range(0, x_plot.size):
+                print(old_extreme_deflection_index[0], old_extreme_deflection_index[1], segment_max_deflection_index, segment_min_deflection_index)
                 shear_value_pairs.append({'x': x_plot[i], 'y': shear_ys[i]})
                 moment_value_pairs.append({'x': x_plot[i], 'y': moment_ys[i]})
+                deflection_value_pairs.append({'x': x_plot[i], 'y': deflection_ys[i]})
 
-                # if i in shear_indices:
-                #     max_shear_value_pairs.append({'x': x_plot[i], 'y': shear_ys[i]})
-                # else:
-                #     max_shear_value_pairs.append({'x': None, 'y': None})
+                if i == segment_max_deflection_index or i == segment_min_deflection_index:
+                    if deflection_ys[i] > extreme_deflection_values[0]:
+                        extreme_deflection_values[0] = deflection_ys[i]
+                        if i:
+                            max_deflection_value_pairs[old_extreme_deflection_index[0]] = {'x': None, 'y': None}
+                        old_extreme_deflection_index[0] = len(max_deflection_value_pairs)
+                        max_deflection_value_pairs.append({'x': x_plot[i], 'y': deflection_ys[i]})
+
+                    elif deflection_ys[i] < extreme_deflection_values[1]:
+                        extreme_deflection_values[1] = deflection_ys[i]
+                        if i:
+                            max_deflection_value_pairs[old_extreme_deflection_index[1]] = {'x': None, 'y': None}
+                        old_extreme_deflection_index[1] = len(deflection_value_pairs)
+                        max_deflection_value_pairs.append({'x': x_plot[i], 'y': deflection_ys[i]})
+
+                    else:
+                        max_deflection_value_pairs.append({'x': None, 'y': None})
+                else:
+                    max_deflection_value_pairs.append({'x': None, 'y': None})
+
 
                 if i == max_shear_index:
                     max_shear_value_pairs.append({'x': x_plot[i], 'y': shear_ys[i]})
@@ -1328,65 +1336,31 @@ class beam:
                 else:
                     max_moment_value_pairs.append({'x': None, 'y': None})
 
-                # if i in moment_indices:
-                #     max_moment_value_pairs.append({'x': x_plot[i], 'y': moment_ys[i]})
-                # else:
-                #     max_moment_value_pairs.append({'x': None, 'y': None})
+        print(max_deflection_value_pairs, old_extreme_deflection_index[0], max_deflection_value_pairs[old_extreme_deflection_index[0]])
 
-        
-            
+        # eq1 = sym.Eq(f'{max_deflection_value_pairs[old_extreme_deflection_index[0]]["x"]} / I', float(self.length * 12 / 360))
+        # print(eq1)
+        # sol = sym.solve(eq1, I)
 
+        # if len(sol) > 1:
+        #     print('Multiple solutions, ugh oh', eq1, sol)
+        # elif len(sol) == 0:
+        #     print('No solution', eq1, sol)
+        # elif sol[0] > I_req:
+        #     I_req = sol[0]
+        # print('I = ', I_req)
 
-            # # Shear force plot.
-            # ax[1].plot(
-            #     x_plot,
-            #     np.vectorize(sym.lambdify(x, shear_force_plot))(x_plot),
-            #     color=color_shear_force,
-            #     linewidth=line_width_diagrams,
-            # )
-            # ax[1].fill_between(
-            #     x_plot,
-            #     sym.lambdify(x, shear_force_plot)(x_plot),
-            #     color=color_shear_force,
-            #     alpha=alpha,
-            # )
+        output = {
+            'shear_value_pairs': shear_value_pairs, 
+            'max_shear_value_pairs': max_shear_value_pairs, 
+            'moment_value_pairs': moment_value_pairs, 
+            'max_moment_value_pairs': max_moment_value_pairs,
+            'deflection_value_pairs': deflection_value_pairs, 
+            'max_deflection_value_pairs': max_deflection_value_pairs,  
+            'I_req': str(I_req),
+        }
 
-            # # Bending diagram plot.
-            # ax[2].plot(
-            #     x_plot,
-            #     np.vectorize(sym.lambdify(x, bending_moment_plot))(x_plot),
-            #     color=color_bending_moment,
-            #     linewidth=line_width_diagrams,
-            # )
-            # ax[2].fill_between(
-            #     x_plot,
-            #     sym.lambdify(x, bending_moment_plot)(x_plot),
-            #     color=color_bending_moment,
-            #     alpha=alpha,
-            # )
-
-            # # Deflection plot.
-            # ax[3].plot(
-            #     x_plot,
-            #     np.vectorize(sym.lambdify(x, deflection_plot))(x_plot),
-            #     color=color_deflection,
-            #     linewidth=line_width_deflection,
-            # )
-            # ax[3].plot(
-            #     [x_plot[0], x_plot[-1]],
-            #     [0, 0],
-            #     color=color_beam,
-            #     linewidth=line_width_beam / 2,
-            #     linestyle="--",
-            # )
-
-            # # Get maximum and minimum coordinate of the beam (axis limits).
-            # if i == 0:
-            #     xmin = x_plot[0]
-            # if i == len(self.segments) - 1:
-            #     xmax = x_plot[-1]
-
-        return json.dumps(shear_value_pairs), json.dumps(max_shear_value_pairs), json.dumps(moment_value_pairs), json.dumps(max_moment_value_pairs), json.dumps(extreme_shear_values), json.dumps(extreme_moment_values)
+        return output
 
         # Set the y-axis upper and lower bounds for the beam representation.
         ymax = max(max_distributed_load) * 1.1
