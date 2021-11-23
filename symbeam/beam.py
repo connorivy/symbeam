@@ -12,6 +12,7 @@ SymBeam furnishes to the outside world.
 
 ..moduleauthor:: A. M. Couto Carneiro <amcc@fe.up.pt>
 """
+from django.db import models
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 import numpy as np
@@ -22,7 +23,7 @@ from sympy.abc import E, I, x
 from symbeam.load import distributed_load, point_load, point_moment
 from symbeam.point import continuity, fixed, hinge, pin, roller
 
-import json
+from ...beam/models import *
 
 
 # Set numerical tolerance
@@ -1281,7 +1282,7 @@ class beam:
 
             deflection_eqns.append(deflection_plot)
             deflection_plot = deflection_plot.subs({I: 1})
-            deflection_ys = np.vectorize(sym.lambdify(x, deflection_plot))(x_plot)
+            deflection_ys = -1 * np.vectorize(sym.lambdify(x, deflection_plot))(x_plot)
 
             max_shear_index = np.argmax(shear_ys)
             min_shear_index = np.argmin(shear_ys)
@@ -1292,7 +1293,6 @@ class beam:
             segment_min_deflection_index = np.argmin(deflection_ys)
 
             for i in range(0, x_plot.size):
-                print(old_extreme_deflection_index[0], old_extreme_deflection_index[1], segment_max_deflection_index, segment_min_deflection_index)
                 shear_value_pairs.append({'x': x_plot[i], 'y': shear_ys[i]})
                 moment_value_pairs.append({'x': x_plot[i], 'y': moment_ys[i]})
                 deflection_value_pairs.append({'x': x_plot[i], 'y': deflection_ys[i]})
@@ -1309,7 +1309,7 @@ class beam:
                         extreme_deflection_values[1] = deflection_ys[i]
                         if i:
                             max_deflection_value_pairs[old_extreme_deflection_index[1]] = {'x': None, 'y': None}
-                        old_extreme_deflection_index[1] = len(deflection_value_pairs)
+                        old_extreme_deflection_index[1] = len(max_deflection_value_pairs)
                         max_deflection_value_pairs.append({'x': x_plot[i], 'y': deflection_ys[i]})
 
                     else:
@@ -1336,19 +1336,21 @@ class beam:
                 else:
                     max_moment_value_pairs.append({'x': None, 'y': None})
 
-        print(max_deflection_value_pairs, old_extreme_deflection_index[0], max_deflection_value_pairs[old_extreme_deflection_index[0]])
+        print(old_extreme_deflection_index)
+        max_deflection = max(abs(deflection_value_pairs[old_extreme_deflection_index[0]]["y"]), abs(deflection_value_pairs[old_extreme_deflection_index[1]]["y"]))
 
-        # eq1 = sym.Eq(f'{max_deflection_value_pairs[old_extreme_deflection_index[0]]["x"]} / I', float(self.length * 12 / 360))
-        # print(eq1)
-        # sol = sym.solve(eq1, I)
+        print(max_deflection)
+        eq1 = sym.Eq(max_deflection / I, float(self.length * 12 / 360))
+        print(eq1)
+        sol = sym.solve(eq1, I)
 
-        # if len(sol) > 1:
-        #     print('Multiple solutions, ugh oh', eq1, sol)
-        # elif len(sol) == 0:
-        #     print('No solution', eq1, sol)
-        # elif sol[0] > I_req:
-        #     I_req = sol[0]
-        # print('I = ', I_req)
+        if len(sol) > 1:
+            print('Multiple solutions, ugh oh', eq1, sol)
+        elif len(sol) == 0:
+            print('No solution', eq1, sol)
+        elif sol[0] > I_req:
+            I_req = sol[0]
+        print('I = ', I_req)
 
         output = {
             'shear_value_pairs': shear_value_pairs, 
