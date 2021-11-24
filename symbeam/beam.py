@@ -23,7 +23,7 @@ from sympy.abc import E, I, x
 from symbeam.load import distributed_load, point_load, point_moment
 from symbeam.point import continuity, fixed, hinge, pin, roller
 
-from ...beam/models import *
+# from ...beam/models import *
 
 
 # Set numerical tolerance
@@ -1186,13 +1186,11 @@ class beam:
         max_deflection_value_pairs = []
         deflection_eqns = []
         I_req = 0
-        max_deflection_index = None
-        old_extreme_deflection_index = [0,0]
-        min_deflection_index = None
 
-        extreme_shear_values = [0,0]
-        extreme_moment_values = [0,0]
+        # keep track of the max deflection and the index of max deflection (both positive and negative)
+        old_extreme_deflection_index = [0,0]
         extreme_deflection_values = [0,0]
+
         # Plots segments
         # --------------
         for i, isegment in enumerate(self.segments):
@@ -1227,14 +1225,14 @@ class beam:
             variables_x_end = x_end_plot.free_symbols
             variables_x_end.discard(x)
 
-            for ivariable in variables_distributed_load:
-                distributed_load_plot = distributed_load_plot.subs({ivariable: 1})
+            # for ivariable in variables_distributed_load:
+            #     distributed_load_plot = distributed_load_plot.subs({ivariable: 1})
 
-            for ivariable in variables_shear_force:
-                shear_force_plot = shear_force_plot.subs({ivariable: 1})
+            # for ivariable in variables_shear_force:
+            #     shear_force_plot = shear_force_plot.subs({ivariable: 1})
 
-            for ivariable in variables_bending_moment:
-                bending_moment_plot = bending_moment_plot.subs({ivariable: 1})
+            # for ivariable in variables_bending_moment:
+            #     bending_moment_plot = bending_moment_plot.subs({ivariable: 1})
 
             # for ivariable in variables_deflection:
             #     deflection_plot = deflection_plot.subs({ivariable: 1})
@@ -1277,12 +1275,16 @@ class beam:
             #     [x_plot[0], x_plot[-1]], [0, 0], color=color_beam, linewidth=line_width_beam
             # )
 
+            # get y values for shear and moment plots
             shear_ys = np.vectorize(sym.lambdify(x, shear_force_plot))(x_plot)
             moment_ys = np.vectorize(sym.lambdify(x, bending_moment_plot))(x_plot)
 
             deflection_eqns.append(deflection_plot)
-            deflection_plot = deflection_plot.subs({I: 1})
-            deflection_ys = -1 * np.vectorize(sym.lambdify(x, deflection_plot))(x_plot)
+            deflection_plot = deflection_plot.subs({I: (1 / 12**4)})
+
+            # multiply deflected ys by -1 to get the correct graph shape
+            # multiply by 12 to convert from feet to inches
+            deflection_ys = -12 * np.vectorize(sym.lambdify(x, deflection_plot))(x_plot)
 
             max_shear_index = np.argmax(shear_ys)
             min_shear_index = np.argmin(shear_ys)
